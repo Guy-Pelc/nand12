@@ -1,0 +1,147 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Memory.jack
+
+/**
+ * This library provides two services: direct access to the computer's main
+ * memory (RAM), and allocation and recycling of memory blocks. The Hack RAM
+ * consists of 32,768 words, each holding a 16-bit binary number.
+ */ 
+class Memory {
+
+    static array ram;
+    static array heap;
+    static array freeList;
+
+    /** Initializes the class. */
+    function void init() {
+    let ram = 0;
+    let heap = 2048;
+    let freeList = heap;
+    let heap[1] = 0;
+    let heap[0] = 14336;
+
+    return;
+    }
+
+    /** Returns the RAM value at the given address. */
+    function int peek(int address) {
+    return ram[address];
+    }
+
+    /** Sets the RAM value at the given address to the given value. */
+    function void poke(int address, int value) {
+    let ram[address] = value;
+    return;
+    }
+
+    /** Finds an available RAM block of the given size and returns
+     *  a reference to its base address. */
+    function int alloc(int size) {
+      var int ptr,s;
+      let ptr = freeList;
+      let s = Memory.peek(ptr);
+      while (~((size+2)<s))
+      {
+        let ptr = Memory.peek(ptr+1);
+        let s = Memory.peek(ptr);
+
+        if (ptr = 0)
+        {
+            do Sys.error("allocation failed");
+            do Sys.halt();
+        }
+      }
+      do Memory.poke(ptr,s-(size+1));
+      do Memory.poke(ptr+s-(size+1),size+1);
+      return ptr+s-size;
+    }
+
+    /** De-allocates the given object (cast as an array) by making
+     *  it available for future allocations. */
+    function void deAlloc(Array o) {
+        var int ptr, nextPtr;
+        var bool isDeFrag;
+
+        // if it is possible to deFrag, do it.
+        if (Memory.deFrag(o)) {return;}
+        else
+        {
+            //else, append to the list.
+            let ptr = freeList;
+            let nextPtr = Memory.peek(ptr+1);
+            while (~(nextPtr=0))
+            {
+               let ptr = nextPtr;
+               let nextPtr = Memory.peek(ptr+1);
+            }
+            do Memory.poke(ptr+1,o-1);
+            do Memory.poke(o,0);
+            return;
+        }
+
+
+    }
+
+    function bool deFrag(Array c)
+    {
+        var bool isUpperDeFrag;
+        var int size,upper, upperSize, lower, lowerSize, preLower,postLower;
+
+        //check memory above:
+        let isUpperDeFrag = false;
+        let size = Memory.peek(c-1);
+        let upper = freeList;
+        let upperSize = Memory.peek(upper);
+
+        while ((~(upper+upperSize = c-1)) & (~(upper=0)))
+        {
+            let upper = Memory.peek(upper+1);
+            let upperSize = Memory.peek(upper);
+        }
+        if (upper+upperSize = c-1)
+        {
+          let isUpperDeFrag = true;
+          do Memory.poke(upper,upperSize+size);
+        }
+
+        //check memory below:
+        let lower = c-1+size;
+        if (Memory.inFreeList(lower))
+        {
+            let lowerSize = Memory.peek(lower);
+
+            if (isUpperDeFrag)
+            {
+                do Memory.poke(upper,upperSize+size+lowerSize);
+                let preLower = freeList;
+                while (~(Memory.peek(preLower+1) = lower))
+                {
+                    let preLower = Memory.peek(preLower+1);
+                }
+                do Memory.poke(preLower+1,Memory.peek(lower+1));
+            }
+            else
+            {
+                let postLower = Memory.peek(lower+1);
+                do Memory.poke(c,postLower);
+                do Memory.poke(c-1,size+lowerSize);
+            }
+            return true;
+        }
+        return isUpperDeFrag;
+    }
+
+    function bool inFreeList(Array c)
+    {
+        var int ptr;
+        let ptr = freeList;
+        while (~(ptr=0))
+        {
+            if (ptr = c) {return true;}
+            let ptr = Memory.peek(ptr+1);
+        }
+        return false;
+    }
+}
