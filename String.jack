@@ -11,6 +11,7 @@
  * string-oriented operations.
  */
 class String {
+    field Array s;
 
     /** constructs a new empty string with a maximum length of maxLength
      *  and initial length of 0. */
@@ -44,6 +45,60 @@ class String {
     /** Returns the integer value of this string, 
      *  until a non-digit character is detected. */
     method int intValue() {
+
+        return getIntFromString(s);
+    }
+
+    function int getIntFromString(String str)
+    {
+
+        var int val,j;
+        var String  newStr;
+
+
+        let newStr = Keyboard.parseDigits(str);
+
+        let val = 0;
+        let j = 0;
+
+        while (j < newStr.length())
+        {
+            let val = val*10;
+
+            let val = val + newStr.charAt(j)-48;
+
+            let j = j + 1;
+        }
+
+
+        do str.dispose();
+        do newStr.dispose();
+        return val;
+
+
+    }
+
+
+    function String parseDigits(String str)
+    {
+        var String newStr;
+        var int j;
+        var char curChar;
+
+        let newStr = String.new(str.length());
+        let j = 0;
+        while (j<str.length())
+        {
+            let curChar = str.charAt(j);
+            if ((curChar<48) | (curChar>57))
+            {
+                return newStr;
+            }
+
+            do newStr.appendChar(curChar);
+            let j = j+1;
+        }
+        return newStr;
     }
 
     /** Sets this string to hold a representation of the given value. */
