@@ -1,0 +1,267 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Screen.jack
+
+/**
+ * A library of functions for displaying graphics on the screen.
+ * The Hack physical screen consists of 512 rows (indexed 0..511, top to bottom)
+ * of 256 pixels each (indexed 0..255, left to right). The top left pixel on 
+ * the screen is indexed (0,0).
+ */
+class Screen {
+    static bool isBlack;
+
+    /** Initializes the Screen. */
+    function void init() {
+        let isBlack = true;
+        return;
+    }
+
+    /** Erases the entire screen. */
+    function void clearScreen() {
+        return;
+    }
+
+    /** Sets the current color, to be used for all subsequent drawXXX commands.
+     *  Black is represented by true, white by false. */
+    function void setColor(boolean b) {
+        let isBlack = b;
+        return;
+    }
+
+    /** Draws the (x,y) pixel, using the current color. */
+    function void drawPixel(int x, int y) {
+        var int address, value,bitLoc;
+        let address = 16384 + (32*y) + (x/16);
+        let value = Memory.peek(address);
+        let bitLoc = Screen.mod16(x);
+        if (isBlack)
+        {
+            if (~(bitLoc=15))
+            {
+                let value = value | Screen.twoToThe(bitLoc);
+            }
+            else
+            {
+                let value = value | (-32767-1);
+            }
+
+        }
+        else
+        {
+            if (~(bitLoc=15))
+            {
+                let value = value & (~Screen.twoToThe(bitLoc));
+            }
+            else
+            {
+                let value = value & (~(-32767-1));
+            }
+        }
+        do Memory.poke(address,value);
+        return;
+    }
+
+    /** assumes positive x*/
+    function int mod16(int x)
+    {
+        return (15 & x);
+    }
+
+    /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
+    function void drawLine(int x1, int y1, int x2, int y2) {
+        var int a,b,diff,dx,dy,xi,yi;
+        var bool isDirPos;
+
+        let a = 0;
+        let b = 0;
+        let diff = 0;
+        let dx = x2-x1;
+        let dy = y2-y1;
+
+        let xi = Math.min(x1,x2);
+
+        let isDirPos = ((dx>0 & dy>0) | (dx<0 & dy<0));
+        let dx = Math.abs(dx);
+        let dy = Math.abs(dy);
+
+        if (dy=0)
+        {
+            while (~(a>dx))
+            {
+                if ((Screen.mod16(xi+a)=0) & (dx-a>15))
+                {
+
+                    do Memory.poke(16384 + Screen.shiftN(y1,5,false) + Screen.shiftN(xi+a,4,true),isBlack);
+                    let a = a+16;
+                }
+                else
+                {
+                    do Screen.drawPixel(xi+a,y1);
+                    let a = a+1;
+                }
+
+            }
+            return;
+        }
+
+        if (dx=0)
+        {
+            let yi = Math.min(y1,y2);
+            while (~(b>dy))
+            {
+                do Screen.drawPixel(xi,yi+b);
+                let b = b+1;
+            }
+            return;
+        }
+
+
+        if (isDirPos)
+        {
+            let yi = Math.min(y1,y2);
+            while ((~(a>dx)) & (~(b>dy)))
+            {
+                do Screen.drawPixel(xi+a,yi+b);
+
+                if (diff < 0)
+                {
+                    let a = a+1;
+                    let diff = diff + dy;
+                }
+                else
+                {
+                    let b = b + 1;
+                    let diff = diff - dx;
+                }
+            }
+        }
+        else
+        {
+            let yi = Math.max(y1,y2);
+            while ((~(a>dx)) & (~(b>dy)))
+            {
+                do Screen.drawPixel(xi+a,yi-b);
+
+                if (diff < 0)
+                {
+                    let a = a+1;
+                    let diff = diff + dy;
+                }
+                else
+                {
+                    let b = b + 1;
+                    let diff = diff - dx;
+                }
+            }
+        }
+
+        return;
+    }
+
+    /** Draws a filled rectangle whose top left corner is (x1, y1)
+     * and bottom right corner is (x2,y2), using the current color. */
+    function void drawRectangle(int x1, int y1, int x2, int y2) {
+        var int dy;
+        let dy = y1;
+        while( dy < (y2 + 1))
+        {
+            do Screen.drawLine(x1,dy,x2,dy);
+            let dy = dy+1;
+        }
+
+        return;
+    }
+
+    /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
+    function void drawCircle(int x, int y, int r) {
+        //for each dy = -r to r do:
+        //drawLine(x - sqrt(r^2-dy^2), y+dy, x + sqrt(r^2-dy^2),y+dy);
+        var int temp,dy;
+        let dy = -r;
+        while (dy<(r+1))
+        {
+            let temp = Math.sqrt((r*r) - (dy*dy));
+            do Screen.drawLine(x-temp,y+dy,x+temp,y+dy);
+            let dy = dy + 1;
+        }
+
+
+
+        return;
+    }
+        /** Returns two to the j'th power */
+    function int twoToThe(int j)
+    {
+        var int val;
+        let val = 1;
+        while (j>0)
+        {
+            let val = val + val;
+            let j = j - 1;
+        }
+        return val;
+    }
+
+    function int shiftLeft(int x)
+    {
+        var int sum,b,i;
+        let sum = 0;
+        let b = 2;
+        let i = 1;
+
+        while ((i<16834) & (i>0))
+        {
+            if ((x & i) = i)
+            {
+                let sum = sum + b;
+            }
+            let i = b;
+            let b = b+b;
+        }
+        return sum;
+    }
+
+    function int shiftN(int x, int n, bool isRight)
+    {
+        var int sum;
+        let sum = x;
+
+        if (isRight)
+        {
+            while (n>0)
+            {
+                let sum = Screen.shiftRight(sum);
+                let n = n-1;
+            }
+        }
+        else
+        {
+            while (n>0)
+            {
+                let sum = Screen.shiftLeft(sum);
+                let n = n-1;
+            }
+        }
+        return sum;
+    }
+    function int shiftRight(int x)
+    {
+        var int sum, b, i;
+        let sum = 0;
+        let b = 1;
+        let i = 2;
+
+        while ((i<32767) & (i>0))
+        {
+            if ((x & i) = i)
+            {
+                let sum = sum + b;
+            }
+            let b = i;
+            let i = i+i;
+        }
+        return sum;
+    }
+}
